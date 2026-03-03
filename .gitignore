@@ -1,0 +1,24 @@
+#Virtual env
+.venv/
+venv/
+env/
+
+#Py
+__pycache__/
+*.py[cod]
+*$py.class
+
+#Flask
+instance/
+
+#Keep .db files local for now I guess
+*.db
+
+#Environmental vars
+.env
+
+#VScode
+.vscode/
+
+#Logs
+*.log
