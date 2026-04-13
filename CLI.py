@@ -9,15 +9,10 @@ class OpenFlightsCLI:
         self.airlines = []
         self.routes = []
 
-        # Fast lookup structures
         self.airport_by_code = {}
         self.airports_by_country = defaultdict(list)
         self.routes_by_source = defaultdict(list)
         self.airlines_by_code = {}
-
-    # --------------------
-    # DATA LOADING
-    # --------------------
 
     def load_airports(self):
         with open("airports.dat", encoding="utf-8") as f:
@@ -81,10 +76,6 @@ class OpenFlightsCLI:
         print(f"{len(self.airports)} airports loaded")
         print(f"{len(self.airlines)} airlines loaded")
         print(f"{len(self.routes)} routes loaded")
-
-    # --------------------
-    # SEARCH FUNCTIONS
-    # --------------------
 
     def search_airports(self):
         query = input("Search airport city/name/code: ").lower()
@@ -186,9 +177,26 @@ class OpenFlightsCLI:
         else:
             print(f"{code} operates {count} routes")
 
-    # --------------------
-    # CLI MENU
-    # --------------------
+    def route_finder(self):
+        source = input("Enter departure airport IATA code: ").upper()
+        dest = input("Enter destination airport IATA code: ").upper()
+
+        routes = []
+
+        for route in self.routes_by_source[source]:
+            if route["destination"] == dest and route["source"] == source:
+                routes.append(route)
+
+        if not routes:
+            print("No routes found between airports")
+            return
+        
+        print(f"\nFlights between {source} and {dest}: \n")
+
+        for route in routes:
+            print(route)
+            print("\n")
+
 
     def menu(self):
 
@@ -201,7 +209,8 @@ class OpenFlightsCLI:
             print("4 Airlines flying between two airports")
             print("5 Airports in a country")
             print("6 Airline route count")
-            print("7 Exit")
+            print("7 Flight finder")
+            print("8 Exit")
 
             choice = input("Choose option: ")
 
@@ -224,6 +233,9 @@ class OpenFlightsCLI:
                 self.airline_route_count()
 
             elif choice == "7":
+                self.route_finder()
+
+            elif choice == "8":
                 break
 
             else:
