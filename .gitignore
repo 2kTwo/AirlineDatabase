@@ -11,9 +11,7 @@ __pycache__/
 #Flask
 instance/
 
-#Keep .db files local for now I guess
-*.db
-*.dat
+
 
 #Environmental vars
 .env
