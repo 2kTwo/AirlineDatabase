@@ -12,6 +12,7 @@ class OpenFlightsCLI:
         self.airport_by_code = {}
         self.airports_by_country = defaultdict(list)
         self.routes_by_source = defaultdict(list)
+        self.routes_by_destination = defaultdict(list)
         self.airlines_by_code = {}
 
     def load_airports(self):
@@ -60,11 +61,14 @@ class OpenFlightsCLI:
                     "airline": row[0],
                     "source": row[2],
                     "destination": row[4],
-                    "stops": row[7]
+                    "stops": row[7],
+                    "departure": row[-2],
+                    "arrival": row[-1]
                 }
 
                 self.routes.append(route)
                 self.routes_by_source[route["source"]].append(route)
+                self.routes_by_destination[route["destination"]].append(route)
 
     def load_all(self):
         print("Loading data...")
@@ -197,6 +201,72 @@ class OpenFlightsCLI:
             print(route)
             print("\n")
 
+    def get_airport_name(self, code):
+        airport = self.airport_by_code.get(code)
+        if airport:
+            return f'{airport["name"]} ({code})'
+        return code
+
+    def get_airline_name(self, code):
+        airline = self.airlines_by_code.get(code)
+        if airline:
+            return airline["name"]
+        return code
+
+    def print_board(self, title, rows):
+        print("\n" + "=" * 85)
+        print(title.center(85))
+        print("=" * 85)
+        print(f'{"Airline":25} {"From/To":30} {"Departure":12} {"Arrival":12}')
+        print("-" * 85)
+
+        for row in rows:
+            print(
+                f'{row["airline"][:25]:25} '
+                f'{row["location"][:30]:30} '
+                f'{row["departure"]:12} '
+                f'{row["arrival"]:12}'
+            )
+
+        print("=" * 85)
+
+    def board_maker(self):
+        code = input("Enter airport code: \n").upper().strip()
+
+        departures = []
+        arrivals = []
+
+        for route in self.routes_by_source.get(code, []):
+
+            departures.append({
+                "airline": self.get_airline_name(route["airline"]),
+                "location": self.get_airport_name(route["destination"]),
+                "departure": route["departure"],
+                "arrival": route["arrival"]
+            })
+
+        for route in self.routes_by_destination.get(code, []):
+
+            arrivals.append({
+                "airline": self.get_airline_name(route["airline"]),
+                "location": self.get_airport_name(route["source"]),
+                "departure": route["departure"],
+                "arrival": route["arrival"]
+            })
+
+        airport_name = self.get_airport_name(code)
+
+        print(f"\nAirport board for {airport_name}")
+
+        if departures:
+            self.print_board("DEPARTURES", departures[:20])
+        else:
+            print("\nNo departures found.")
+
+        if arrivals:
+            self.print_board("ARRIVALS", arrivals[:20])
+        else:
+            print("\nNo arrivals found.")
 
     def menu(self):
 
@@ -210,7 +280,8 @@ class OpenFlightsCLI:
             print("5 Airports in a country")
             print("6 Airline route count")
             print("7 Flight finder")
-            print("8 Exit")
+            print("8 Arrivals/Departues board")
+            print("9 Exit")
 
             choice = input("Choose option: ")
 
@@ -236,6 +307,9 @@ class OpenFlightsCLI:
                 self.route_finder()
 
             elif choice == "8":
+                self.board_maker()
+
+            elif choice == "9":
                 break
 
             else:
