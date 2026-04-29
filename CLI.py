@@ -1,249 +1,480 @@
 import csv
-from collections import defaultdict, Counter
+import sqlite3
 
 
-class OpenFlightsCLI:
+class OpenFlightsSQLCLI:
 
-    def __init__(self):
-        self.airports = []
-        self.airlines = []
-        self.routes = []
-        self.cities = []
+    def __init__(self, db_name="openflights.db"):
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
 
-        self.city_by_id = {}
-        self.airport_by_code = {}
-        self.airports_by_country = defaultdict(list)
-        self.routes_by_source = defaultdict(list)
-        self.routes_by_destination = defaultdict(list)
-        self.airlines_by_code = {}
+    def create_tables(self):
+        self.cursor.executescript("""
+            DROP TABLE IF EXISTS Routes;
+            DROP TABLE IF EXISTS Airports;
+            DROP TABLE IF EXISTS Airlines;
+            DROP TABLE IF EXISTS Cities;
+            DROP TABLE IF EXISTS Countries;
+
+            CREATE TABLE Cities (
+                city_id TEXT PRIMARY KEY,
+                city TEXT,
+                country TEXT,
+                timezone TEXT,
+                dst TEXT,
+                tz TEXT
+            );
+
+            CREATE TABLE Airports (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                city_id TEXT,
+                iata TEXT,
+                icao TEXT,
+                FOREIGN KEY (city_id) REFERENCES Cities(city_id)
+            );
+
+            CREATE TABLE Airlines (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                alias TEXT,
+                iata TEXT,
+                icao TEXT,
+                callsign TEXT,
+                country TEXT,
+                active TEXT
+            );
+
+            CREATE TABLE Countries (
+                name TEXT,
+                iso_code TEXT PRIMARY KEY,
+                dafif_code TEXT
+            );
+
+            CREATE TABLE Routes (
+                airline TEXT,
+                airline_id TEXT,
+                source TEXT,
+                source_id TEXT,
+                destination TEXT,
+                destination_id TEXT,
+                codeshare TEXT,
+                stops INTEGER,
+                equipment TEXT,
+                departure TEXT,
+                arrival TEXT
+            );
+        """)
+
+        self.conn.commit()
+
+    def create_indexes(self):
+        self.cursor.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_airports_iata ON Airports(iata);
+            CREATE INDEX IF NOT EXISTS idx_airports_icao ON Airports(icao);
+            CREATE INDEX IF NOT EXISTS idx_airports_city_id ON Airports(city_id);
+
+            CREATE INDEX IF NOT EXISTS idx_airlines_iata ON Airlines(iata);
+            CREATE INDEX IF NOT EXISTS idx_airlines_icao ON Airlines(icao);
+
+            CREATE INDEX IF NOT EXISTS idx_routes_source ON Routes(source);
+            CREATE INDEX IF NOT EXISTS idx_routes_destination ON Routes(destination);
+            CREATE INDEX IF NOT EXISTS idx_routes_airline ON Routes(airline);
+
+            CREATE INDEX IF NOT EXISTS idx_cities_country ON Cities(country);
+            CREATE INDEX IF NOT EXISTS idx_countries_iso ON Countries(iso_code);
+        """)
+
+        self.conn.commit()
 
     def load_cities(self):
+        rows = []
+
         with open("cities.dat", encoding="utf-8") as f:
             reader = csv.reader(f)
-            for row in reader:
-                city = {
-                    "city_id": row[0],
-                    "city": row[1],
-                    "country": row[2],
-                    "timezone": row[3],
-                    "dst": row[4],
-                    "tz": row[5]
-                }
 
-                self.cities.append(city)
-                self.city_by_id[city["city_id"]] = city
+            for row in reader:
+                if len(row) < 6:
+                    continue
+
+                rows.append((
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4],
+                    row[5]
+                ))
+
+        self.cursor.executemany("""
+            INSERT INTO Cities
+            (city_id, city, country, timezone, dst, tz)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, rows)
 
     def load_airports(self):
+        rows = []
+
         with open("airports.dat", encoding="utf-8") as f:
             reader = csv.reader(f)
+
             for row in reader:
-                city_info = self.city_by_id.get(row[2], {})
+                if len(row) < 5:
+                    continue
 
-                airport = {
-                    "id": row[0],
-                    "name": row[1],
-                    "city_id": row[2],
-                    "city": city_info.get("city", "Unknown"),
-                    "country": city_info.get("country", "Unknown"),
-                    "timezone": city_info.get("timezone", ""),
-                    "dst": city_info.get("dst", ""),
-                    "tz": city_info.get("tz", ""),
-                    "iata": row[3],
-                    "icao": row[4]
-                }
+                rows.append((
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4]
+                ))
 
-                self.airports.append(airport)
-
-                if airport["iata"] != "\\N":
-                    self.airport_by_code[airport["iata"]] = airport
-
-                if airport["icao"] != "\\N":
-                    self.airport_by_code[airport["icao"]] = airport
-
-                self.airports_by_country[airport["country"]].append(airport)
+        self.cursor.executemany("""
+            INSERT INTO Airports
+            (id, name, city_id, iata, icao)
+            VALUES (?, ?, ?, ?, ?)
+        """, rows)
 
     def load_airlines(self):
+        rows = []
+
         with open("airlines.dat", encoding="utf-8") as f:
             reader = csv.reader(f)
+
             for row in reader:
-                airline = {
-                    "id": row[0],
-                    "name": row[1],
-                    "country": row[6],
-                    "iata": row[3],
-                    "icao": row[4],
-                    "active": row[7]
-                }
+                if len(row) < 8:
+                    continue
 
-                self.airlines.append(airline)
+                rows.append((
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4],
+                    row[5],
+                    row[6],
+                    row[7]
+                ))
 
-                if airline["iata"] != "\\N":
-                    self.airlines_by_code[airline["iata"]] = airline
+        self.cursor.executemany("""
+            INSERT INTO Airlines
+            (id, name, alias, iata, icao, callsign, country, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, rows)
 
-                if airline["icao"] != "\\N":
-                    self.airlines_by_code[airline["icao"]] = airline
+    def load_countries(self):
+        rows = []
+        seen_iso_codes = set()
+
+        with open("countries.dat", encoding="utf-8") as f:
+            reader = csv.reader(f)
+
+            for row in reader:
+                if len(row) < 3:
+                    continue
+
+                name = row[0].strip()
+                iso_code = row[1].strip().upper()
+                dafif_code = row[2].strip()
+
+                # Skip header row if it exists
+                if iso_code == "ISO_CODE":
+                    continue
+
+                # Skip blank or duplicate ISO codes
+                if not iso_code or iso_code in seen_iso_codes:
+                    continue
+
+                seen_iso_codes.add(iso_code)
+
+                rows.append((
+                    name,
+                    iso_code,
+                    dafif_code
+                ))
+
+        self.cursor.executemany("""
+            INSERT OR IGNORE INTO Countries
+            (name, iso_code, dafif_code)
+            VALUES (?, ?, ?)
+        """, rows)
 
     def load_routes(self):
+        rows = []
+
         with open("routes.dat", encoding="utf-8") as f:
             reader = csv.reader(f)
-            for row in reader:
-                route = {
-                    "airline": row[0],
-                    "source": row[2],
-                    "destination": row[4],
-                    "stops": row[7],
-                    "equipment": row[8],
-                    "departure": row[-2],
-                    "arrival": row[-1]
-                }
 
-                self.routes.append(route)
-                self.routes_by_source[route["source"]].append(route)
-                self.routes_by_destination[route["destination"]].append(route)
+            for row in reader:
+                if len(row) < 11:
+                    continue
+
+                rows.append((
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4],
+                    row[5],
+                    row[6],
+                    row[7],
+                    row[8],
+                    row[-2],
+                    row[-1]
+                ))
+
+        self.cursor.executemany("""
+            INSERT INTO Routes
+            (
+                airline,
+                airline_id,
+                source,
+                source_id,
+                destination,
+                destination_id,
+                codeshare,
+                stops,
+                equipment,
+                departure,
+                arrival
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, rows)
 
     def load_all(self):
+        print("Creating database tables...")
+        self.create_tables()
+
         print("Loading data...")
 
         self.load_cities()
         self.load_airports()
         self.load_airlines()
+        self.load_countries()
         self.load_routes()
 
-        print(f"{len(self.cities)} cities loaded")
-        print(f"{len(self.airports)} airports loaded")
-        print(f"{len(self.airlines)} airlines loaded")
-        print(f"{len(self.routes)} routes loaded")
+        self.conn.commit()
+        self.create_indexes()
+
+        print("Data loaded into SQLite database.")
 
     def search_airports(self):
-        query = input("Search airport city/name/code: ").lower()
+        query = input("Search airport city/name/code: ").lower().strip()
 
-        for airport in self.airports:
-            if (
-                query in airport["name"].lower()
-                or query in airport["city"].lower()
-                or query in airport["country"].lower()
-                or query == airport["iata"].lower()
-                or query == airport["icao"].lower()
-            ):
-                print(
-                    f'{airport["name"]} | {airport["city"]}, {airport["country"]} '
-                    f'| IATA: {airport["iata"]} | ICAO: {airport["icao"]}'
-                )
+        self.cursor.execute("""
+            SELECT
+                Airports.name,
+                Cities.city,
+                Cities.country,
+                Airports.iata,
+                Airports.icao
+            FROM Airports
+            JOIN Cities
+                ON Airports.city_id = Cities.city_id
+            WHERE LOWER(Airports.name) LIKE ?
+               OR LOWER(Cities.city) LIKE ?
+               OR LOWER(Cities.country) LIKE ?
+               OR LOWER(Airports.iata) = ?
+               OR LOWER(Airports.icao) = ?
+            ORDER BY Airports.name
+            LIMIT 25;
+        """, (
+            f"%{query}%",
+            f"%{query}%",
+            f"%{query}%",
+            query,
+            query
+        ))
+
+        rows = self.cursor.fetchall()
+
+        if not rows:
+            print("No airports found.")
+            return
+
+        for name, city, country, iata, icao in rows:
+            print(f"{name} | {city}, {country} | IATA: {iata} | ICAO: {icao}")
 
     def search_airlines(self):
-        query = input("Search airline name or country: ").lower()
+        query = input("Search airline name or country: ").lower().strip()
 
-        for airline in self.airlines:
-            if query in airline["name"].lower() or query in airline["country"].lower():
-                print(
-                    f'{airline["name"]} | {airline["country"]} '
-                    f'| IATA: {airline["iata"]} | Active: {airline["active"]}'
-                )
+        self.cursor.execute("""
+            SELECT name, country, iata, active
+            FROM Airlines
+            WHERE LOWER(name) LIKE ?
+               OR LOWER(country) LIKE ?
+            ORDER BY name
+            LIMIT 25;
+        """, (
+            f"%{query}%",
+            f"%{query}%"
+        ))
+
+        rows = self.cursor.fetchall()
+
+        if not rows:
+            print("No airlines found.")
+            return
+
+        for name, country, iata, active in rows:
+            print(f"{name} | {country} | IATA: {iata} | Active: {active}")
 
     def list_destinations(self):
-        code = input("Source airport code: ").upper()
+        code = input("Source airport code: ").upper().strip()
 
-        if code not in self.routes_by_source:
+        self.cursor.execute("""
+            SELECT DISTINCT destination
+            FROM Routes
+            WHERE source = ?
+            ORDER BY destination;
+        """, (code,))
+
+        rows = self.cursor.fetchall()
+
+        if not rows:
             print("No routes found.")
             return
 
-        destinations = set()
-
-        for route in self.routes_by_source[code]:
-            destinations.add(route["destination"])
-
         print(f"\nDestinations from {code}:")
-        for dest in sorted(destinations):
-            print(dest)
 
-        print(f"\nTotal destinations: {len(destinations)}")
+        for destination in rows:
+            print(destination[0])
+
+        print(f"\nTotal destinations: {len(rows)}")
 
     def airlines_between_airports(self):
-        source = input("Source airport: ").upper()
-        dest = input("Destination airport: ").upper()
+        source = input("Source airport: ").upper().strip()
+        destination = input("Destination airport: ").upper().strip()
 
-        airlines = set()
+        self.cursor.execute("""
+            SELECT DISTINCT
+                COALESCE(Airlines.name, Routes.airline) AS airline_name
+            FROM Routes
+            LEFT JOIN Airlines
+                ON Routes.airline = Airlines.iata
+                OR Routes.airline = Airlines.icao
+            WHERE Routes.source = ?
+              AND Routes.destination = ?
+            ORDER BY airline_name;
+        """, (source, destination))
 
-        for route in self.routes_by_source[source]:
-            if route["destination"] == dest:
-                airlines.add(route["airline"])
+        rows = self.cursor.fetchall()
 
-        if not airlines:
+        if not rows:
             print("No routes found.")
             return
 
         print("\nAirlines flying this route:")
 
-        for code in airlines:
-            airline = self.airlines_by_code.get(code)
-            if airline:
-                print(airline["name"])
-            else:
-                print(code)
+        for airline_name in rows:
+            print(airline_name[0])
 
     def airports_in_country(self):
-        country = input("Enter country name: ")
+        country = input("Enter country name: ").strip()
 
-        airports = self.airports_by_country.get(country)
+        self.cursor.execute("""
+            SELECT
+                Airports.name,
+                Cities.city,
+                Airports.iata
+            FROM Airports
+            JOIN Cities
+                ON Airports.city_id = Cities.city_id
+            WHERE Cities.country = ?
+            ORDER BY Airports.name;
+        """, (country,))
 
-        if not airports:
+        rows = self.cursor.fetchall()
+
+        if not rows:
             print("No airports found.")
             return
 
-        for airport in airports:
-            print(
-                f'{airport["name"]} | {airport["city"]} '
-                f'| IATA: {airport["iata"]}'
-            )
+        for name, city, iata in rows:
+            print(f"{name} | {city} | IATA: {iata}")
 
-        print(f"\nTotal airports: {len(airports)}")
+        print(f"\nTotal airports: {len(rows)}")
 
     def airline_route_count(self):
-        code = input("Enter airline IATA code: ").upper()
+        code = input("Enter airline IATA code: ").upper().strip()
 
-        count = 0
+        self.cursor.execute("""
+            SELECT COUNT(*)
+            FROM Routes
+            WHERE airline = ?;
+        """, (code,))
 
-        for route in self.routes:
-            if route["airline"] == code:
-                count += 1
+        count = self.cursor.fetchone()[0]
 
-        airline = self.airlines_by_code.get(code)
+        self.cursor.execute("""
+            SELECT name
+            FROM Airlines
+            WHERE iata = ?
+               OR icao = ?
+            LIMIT 1;
+        """, (code, code))
 
-        if airline:
-            print(f'{airline["name"]} operates {count} routes')
+        result = self.cursor.fetchone()
+
+        if result:
+            print(f"{result[0]} operates {count} routes")
         else:
             print(f"{code} operates {count} routes")
 
     def route_finder(self):
-        source = input("Enter departure airport IATA code: ").upper()
-        dest = input("Enter destination airport IATA code: ").upper()
+        source = input("Enter departure airport IATA code: ").upper().strip()
+        destination = input("Enter destination airport IATA code: ").upper().strip()
 
-        routes = []
+        self.cursor.execute("""
+            SELECT
+                COALESCE(Airlines.name, Routes.airline) AS airline_name,
+                Routes.source,
+                Routes.destination,
+                Routes.stops,
+                Routes.equipment,
+                Routes.departure,
+                Routes.arrival
+            FROM Routes
+            LEFT JOIN Airlines
+                ON Routes.airline = Airlines.iata
+                OR Routes.airline = Airlines.icao
+            WHERE Routes.source = ?
+              AND Routes.destination = ?
+            ORDER BY Routes.departure;
+        """, (source, destination))
 
-        for route in self.routes_by_source[source]:
-            if route["destination"] == dest and route["source"] == source:
-                routes.append(route)
+        rows = self.cursor.fetchall()
 
-        if not routes:
-            print("No routes found between airports")
+        if not rows:
+            print("No routes found between airports.")
             return
-        
-        print(f"\nFlights between {source} and {dest}:\n")
 
-        for route in routes:
-            print(route)
+        print(f"\nFlights between {source} and {destination}:\n")
+
+        for airline_name, src, dest, stops, equipment, departure, arrival in rows:
+            print(f"Airline: {airline_name}")
+            print(f"Route: {src} -> {dest}")
+            print(f"Stops: {stops}")
+            print(f"Equipment: {equipment}")
+            print(f"Departure: {departure}")
+            print(f"Arrival: {arrival}")
             print()
 
     def get_airport_name(self, code):
-        airport = self.airport_by_code.get(code)
-        if airport:
-            return f'{airport["name"]} ({code})'
-        return code
+        self.cursor.execute("""
+            SELECT name
+            FROM Airports
+            WHERE iata = ?
+               OR icao = ?
+            LIMIT 1;
+        """, (code, code))
 
-    def get_airline_name(self, code):
-        airline = self.airlines_by_code.get(code)
-        if airline:
-            return airline["name"]
+        row = self.cursor.fetchone()
+
+        if row:
+            return f"{row[0]} ({code})"
+
         return code
 
     def print_board(self, title, rows):
@@ -267,94 +498,141 @@ class OpenFlightsCLI:
     def board_maker(self):
         code = input("Enter airport code:\n").upper().strip()
 
-        departures = []
-        arrivals = []
-
         airport_name = self.get_airport_name(code)
 
-        for route in self.routes_by_source.get(code, []):
+        self.cursor.execute("""
+            SELECT
+                COALESCE(Airlines.name, Routes.airline) AS airline_name,
+                Routes.destination,
+                Routes.departure,
+                Routes.arrival
+            FROM Routes
+            LEFT JOIN Airlines
+                ON Routes.airline = Airlines.iata
+                OR Routes.airline = Airlines.icao
+            WHERE Routes.source = ?
+            ORDER BY Routes.departure
+            LIMIT 20;
+        """, (code,))
+
+        departure_rows = self.cursor.fetchall()
+
+        departures = []
+
+        for airline_name, destination, departure, arrival in departure_rows:
             departures.append({
-                "airline": self.get_airline_name(route["airline"]),
+                "airline": airline_name,
                 "from": airport_name,
-                "to": self.get_airport_name(route["destination"]),
-                "departure": route["departure"],
-                "arrival": route["arrival"]
+                "to": self.get_airport_name(destination),
+                "departure": departure,
+                "arrival": arrival
             })
 
-        for route in self.routes_by_destination.get(code, []):
+        self.cursor.execute("""
+            SELECT
+                COALESCE(Airlines.name, Routes.airline) AS airline_name,
+                Routes.source,
+                Routes.departure,
+                Routes.arrival
+            FROM Routes
+            LEFT JOIN Airlines
+                ON Routes.airline = Airlines.iata
+                OR Routes.airline = Airlines.icao
+            WHERE Routes.destination = ?
+            ORDER BY Routes.arrival
+            LIMIT 20;
+        """, (code,))
+
+        arrival_rows = self.cursor.fetchall()
+
+        arrivals = []
+
+        for airline_name, source, departure, arrival in arrival_rows:
             arrivals.append({
-                "airline": self.get_airline_name(route["airline"]),
-                "from": self.get_airport_name(route["source"]),
+                "airline": airline_name,
+                "from": self.get_airport_name(source),
                 "to": airport_name,
-                "departure": route["departure"],
-                "arrival": route["arrival"]
+                "departure": departure,
+                "arrival": arrival
             })
 
         print(f"\nAirport board for {airport_name}")
 
         if departures:
-            self.print_board("DEPARTURES", departures[:20])
+            self.print_board("DEPARTURES", departures)
         else:
             print("\nNo departures found.")
 
         if arrivals:
-            self.print_board("ARRIVALS", arrivals[:20])
+            self.print_board("ARRIVALS", arrivals)
         else:
             print("\nNo arrivals found.")
 
     def aircraft_count(self):
         iso = input("Enter country ISO code: ").upper().strip()
 
-        country_name = None
+        self.cursor.execute("""
+            SELECT Countries.name
+            FROM Countries
+            WHERE UPPER(TRIM(Countries.iso_code)) = ?
+            LIMIT 1;
+        """, (iso,))
 
-        with open("countries.dat", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row[1].upper() == iso:
-                    country_name = row[0]
-                    break
+        country_row = self.cursor.fetchone()
 
-        if not country_name:
+        if not country_row:
             print("Country ISO code not found.")
+
+            # Debug help: show a few ISO codes that actually exist
+            self.cursor.execute("""
+                SELECT iso_code, name
+                FROM Countries
+                LIMIT 10;
+            """)
+            sample_rows = self.cursor.fetchall()
+
+            print("\nSample ISO codes loaded:")
+            for code, name in sample_rows:
+                print(f"{code} - {name}")
+
             return
 
-        airports = self.airports_by_country.get(country_name)
+        country_name = country_row[0]
 
-        if not airports:
-            print("No airports found for this country.")
-            return
+        self.cursor.execute("""
+            SELECT
+                Routes.equipment,
+                COUNT(*) AS usage
+            FROM Routes
+            JOIN Airports
+                ON Routes.source = Airports.iata
+            JOIN Cities
+                ON Airports.city_id = Cities.city_id
+            JOIN Countries
+                ON Cities.country = Countries.name
+            WHERE UPPER(TRIM(Countries.iso_code)) = ?
+            AND Routes.equipment IS NOT NULL
+            AND Routes.equipment <> ''
+            AND Routes.equipment <> '\\N'
+            GROUP BY Routes.equipment
+            ORDER BY usage DESC
+            LIMIT 3;
+        """, (iso,))
 
-        airport_codes = {
-            airport["iata"] for airport in airports
-            if airport["iata"] != "\\N"
-        }
+        rows = self.cursor.fetchall()
 
-        aircraft_counter = Counter()
-
-        for route in self.routes:
-            if route["source"] in airport_codes:
-                equipment = route.get("equipment")
-
-                if equipment and equipment != "\\N":
-                    planes = equipment.split()
-
-                    for plane in planes:
-                        aircraft_counter[plane] += 1
-
-        if not aircraft_counter:
-            print("No aircraft data found.")
+        if not rows:
+            print(f"No aircraft data found for {country_name} ({iso}).")
             return
 
         print(f"\nTop 3 aircraft used for flights from {country_name} ({iso}):\n")
 
-        for aircraft, count in aircraft_counter.most_common(3):
-            print(f"{aircraft} : {count} flights")
+        for equipment, usage in rows:
+            print(f"{equipment}: {usage} flights")
 
     def menu(self):
-
         while True:
-
-            print("\n--- OpenFlights CLI ---")
+            print("\n--- SQLite OpenFlights CLI ---")
             print("1 Search airports")
             print("2 Search airlines")
             print("3 List destinations from airport")
@@ -366,7 +644,7 @@ class OpenFlightsCLI:
             print("9 Aircraft by country")
             print("0 Exit")
 
-            choice = input("Choose option: ")
+            choice = input("Choose option: ").strip()
 
             if choice == "1":
                 self.search_airports()
@@ -401,11 +679,24 @@ class OpenFlightsCLI:
             else:
                 print("Invalid option")
 
+    def close(self):
+        self.conn.close()
+
 
 def main():
-    cli = OpenFlightsCLI()
-    cli.load_all()
-    cli.menu()
+    cli = OpenFlightsSQLCLI()
+
+    rebuild = input("Rebuild SQLite database from .dat files? y/n: ").lower().strip()
+
+    if rebuild == "y":
+        cli.load_all()
+    else:
+        print("Using existing openflights.db")
+
+    try:
+        cli.menu()
+    finally:
+        cli.close()
 
 
 if __name__ == "__main__":
