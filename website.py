@@ -5,34 +5,34 @@ ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
 
 # Palette 
-SIDEBAR_BG    = "#0f1117"
-HEADER_BG     = "#13161f"
-CONTENT_BG    = "#181c27"
-CARD_BG       = "#1e2235"
-ACCENT        = "#4f9eff"
-ACCENT2       = "#3de8b0"
-ACCENT_DIM    = "#1a3a5c"
-TEXT_PRIMARY  = "#e8edf8"
-TEXT_MUTED    = "#6b7a99"
-TEXT_LABEL    = "#9ba8c0"
-ACTIVE_NAV    = "#1e2a42"
-BORDER        = "#252c3f"
+SIDEBAR_BG = "#0f1117"
+HEADER_BG = "#13161f"
+CONTENT_BG = "#181c27"
+CARD_BG = "#1e2235"
+ACCENT = "#4f9eff"
+ACCENT2 = "#3de8b0"
+ACCENT_DIM = "#1a3a5c"
+TEXT_PRIMARY = "#e8edf8"
+TEXT_MUTED = "#6b7a99"
+TEXT_LABEL = "#9ba8c0"
+ACTIVE_NAV = "#1e2a42"
+BORDER = "#252c3f"
 
-FONT_BODY     = ("Segoe UI", 13)
-FONT_MONO     = ("Cascadia Code", 12)
-FONT_LABEL    = ("Segoe UI", 11)
-FONT_HEADING  = ("Segoe UI Semibold", 15)
-FONT_SMALL    = ("Segoe UI", 10)
+FONT_BODY = ("Segoe UI", 13)
+FONT_MONO = ("Cascadia Code", 12)
+FONT_LABEL = ("Segoe UI", 11)
+FONT_HEADING = ("Segoe UI Semibold", 15)
+FONT_SMALL = ("Segoe UI", 10)
 
 NAV_ITEMS = [
-    ("Airports",     "airports"),
-    ("Airlines",     "airlines"),
-    ("Destinations",  "destinations"),
-    ("Routes",        "routes"),
-    ("By Country",   "country"),
-    ("Route Count",   "routecount"),
-     ("Board",         "board"),
-    ("Aircraft",      "aircraft")
+    ("Airports", "airports"),
+    ("Airlines", "airlines"),
+    ("Destinations", "destinations"),
+    ("Routes", "routes"),
+    ("By Country", "country"),
+    ("Route Count", "routecount"),
+     ("Board", "board"),
+    ("Aircraft", "aircraft")
 ]
 
 
@@ -45,8 +45,8 @@ class OpenFlightsGUI(ctk.CTk):
         self.minsize(800, 500)
         self.configure(fg_color=CONTENT_BG)
         self._active_panel = None
-        self._nav_buttons  = {}
-        self._panels       = {}
+        self._nav_buttons = {}
+        self._panels = {}
         self._build()
 
     # Layout skeleton
@@ -59,61 +59,65 @@ class OpenFlightsGUI(ctk.CTk):
         self._switch("airports")
 
     def _build_sidebar(self):
-        sb = ctk.CTkFrame(self, width=190, fg_color=SIDEBAR_BG, corner_radius=0)
-        sb.grid(row=0, column=0, sticky="nsew")
+        sb = ctk.CTkFrame(self, width = 190, fg_color = SIDEBAR_BG, corner_radius = 0)
+        sb.grid(row = 0, column = 0, sticky = "nsew")
         sb.grid_propagate(False)
         sb.grid_rowconfigure(10, weight=1)
 
         for i, (label, key) in enumerate(NAV_ITEMS):
             btn = ctk.CTkButton(
-                sb, text=label, anchor="w",
-                font=FONT_BODY, height=36,
-                fg_color="transparent", hover_color=ACTIVE_NAV,
-                text_color=TEXT_LABEL, corner_radius=8,
-                command=lambda k=key: self._switch(k)
+                sb, text = label, anchor = "w",
+                font = FONT_BODY, height = 36,
+                fg_color = "transparent", hover_color = ACTIVE_NAV,
+                text_color = TEXT_LABEL, corner_radius = 8,
+                command = lambda k = key: self._switch(k)
             )
-            btn.grid(row=i + 3, column=0, sticky="ew", padx=10, pady=2)
+            btn.grid(row = i + 3, column = 0, sticky = "ew", padx = 10, pady = 2)
             self._nav_buttons[key] = btn
 
 
 
     def _build_main(self):
-        main = ctk.CTkFrame(self, fg_color=CONTENT_BG, corner_radius=0)
-        main.grid(row=0, column=1, sticky="nsew")
-        main.grid_columnconfigure(0, weight=1)
-        main.grid_rowconfigure(1, weight=1)
+        main = ctk.CTkFrame(self, fg_color = CONTENT_BG, corner_radius = 0)
+        main.grid(row = 0, column = 1, sticky = "nsew")
+        main.grid_columnconfigure(0, weight = 1)
+        main.grid_rowconfigure(1, weight = 1)
 
         # Header bar
-        self._header = ctk.CTkFrame(main, height=64, fg_color=HEADER_BG, corner_radius=0)
-        self._header.grid(row=0, column=0, sticky="ew")
+        self._header = ctk.CTkFrame(main, height = 64, fg_color = HEADER_BG, corner_radius = 0)
+        self._header.grid(row = 0, column = 0, sticky = "ew")
         self._header.grid_propagate(False)
         self._header_title = ctk.CTkLabel(
-            self._header, text="", font=FONT_HEADING, text_color=TEXT_PRIMARY)
-        self._header_title.place(x=24, rely=0.35, anchor="w")
+            self._header, text= "", font = FONT_HEADING, text_color = TEXT_PRIMARY)
+        self._header_title.place(x = 24, rely = 0.35, anchor = "w")
         self._header_sub = ctk.CTkLabel(
-            self._header, text="", font=FONT_SMALL, text_color=TEXT_MUTED)
-        self._header_sub.place(x=24, rely=0.72, anchor="w")
+            self._header, text = "", font = FONT_SMALL, text_color = TEXT_MUTED)
+        self._header_sub.place(x = 24, rely = 0.72, anchor = "w")
 
         self._status_pill = ctk.CTkLabel(
-            self._header, text="", font=("Segoe UI", 11),
-            text_color=ACCENT2, fg_color=ACCENT_DIM,
-            corner_radius=10, padx=12, pady=3)
-        self._status_pill.place(relx=1.0, rely=0.5, anchor="e", x=-20)
+            self._header, text= "", 
+            font = ("Segoe UI", 11),
+            text_color = ACCENT2, 
+            fg_color = ACCENT_DIM,
+            corner_radius = 10, 
+            padx = 12, 
+            pady = 3)
+        self._status_pill.place(relx = 1.0, rely = 0.5, anchor = "e", x = -20)
 
         # Content
-        self._content = ctk.CTkFrame(main, fg_color=CONTENT_BG, corner_radius=0)
-        self._content.grid(row=1, column=0, sticky="nsew")
-        self._content.grid_columnconfigure(0, weight=1)
-        self._content.grid_rowconfigure(0, weight=1)
+        self._content = ctk.CTkFrame(main, fg_color = CONTENT_BG, corner_radius = 0)
+        self._content.grid(row = 1, column = 0, sticky = "nsew")
+        self._content.grid_columnconfigure(0, weight = 1)
+        self._content.grid_rowconfigure(0, weight = 1)
 
-        self._panels["airports"]     = self._make_airports_panel()
-        self._panels["airlines"]     = self._make_airlines_panel()
+        self._panels["airports"] = self._make_airports_panel()
+        self._panels["airlines"] = self._make_airlines_panel()
         self._panels["destinations"] = self._make_destinations_panel()
-        self._panels["routes"]       = self._make_routes_panel()
-        self._panels["country"]      = self._make_country_panel()
-        self._panels["routecount"]   = self._make_routecount_panel()
-        self._panels["board"]        = self._make_board_panel()
-        self._panels["aircraft"]     = self._make_aircraft_panel()
+        self._panels["routes"] = self._make_routes_panel()
+        self._panels["country"] = self._make_country_panel()
+        self._panels["routecount"] = self._make_routecount_panel()
+        self._panels["board"] = self._make_board_panel()
+        self._panels["aircraft"] = self._make_aircraft_panel()
 
     # Navigation
 
@@ -126,92 +130,97 @@ class OpenFlightsGUI(ctk.CTk):
                 text_color=TEXT_PRIMARY if k == key else TEXT_LABEL
             )
         titles = {
-            "airports":     ("Search Airports", "You can search with name, city, country, IATA or ICAO code. All results shown have those letters in order."),
-            "airlines":     ("Search Airlines", "Search for letters in an airline name or country"),
+            "airports": ("Search Airports", "You can search with name, city, country, IATA or ICAO code. All results shown have those letters in order."),
+            "airlines": ("Search Airlines", "Search for letters in an airline name or country"),
             "destinations": ("Destinations", "Airports reachable from a given hub"),
-            "routes":       ("Routes Between Airports", "Airlines operating a specific city pair"),
-            "country":      ("Airports by Country", "All airports in a given country"),
-            "routecount":   ("Airline Route Count", "How many routes does an airline operate?"),
-            "board":        ("Arrivals / Departures", "Live-style board for any airport"),
-            "aircraft":     ("Aircraft by Country", "Top aircraft types used from a country's airports"),
+            "routes": ("Routes Between Airports", "Airlines operating a specific city pair"),
+            "country": ("Airports by Country", "All airports in a given country"),
+            "routecount": ("Airline Route Count", "How many routes does an airline operate?"),
+            "board": ("Arrivals / Departures", "Mock-live style board for any airport"),
+            "aircraft": ("Aircraft by Country", "Top aircraft types used from a country's airports"),
         }
         title, sub = titles[key]
-        self._header_title.configure(text=title)
-        self._header_sub.configure(text=sub)
-        self._status_pill.configure(text="")
+        self._header_title.configure(text = title)
+        self._header_sub.configure(text = sub)
+        self._status_pill.configure(text= "")
         panel = self._panels[key]
-        panel.grid(row=0, column=0, sticky="nsew")
+        panel.grid(row = 0, column = 0, sticky = "nsew")
         self._active_panel = panel
 
 # Builders
 
     def _make_panel(self):
-        p = ctk.CTkFrame(self._content, fg_color=CONTENT_BG, corner_radius=0)
-        p.grid_columnconfigure(0, weight=1)
-        p.grid_rowconfigure(1, weight=1)
+        p = ctk.CTkFrame(self._content, fg_color = CONTENT_BG, corner_radius = 0)
+        p.grid_columnconfigure(0, weight = 1)
+        p.grid_rowconfigure(1, weight = 1)
         return p
 
-    def _make_search_bar(self, parent, *fields, btn_text="Search", cmd=None):
-        bar = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=12, height=56)
-        bar.grid(row=0, column=0, sticky="ew", padx=20, pady=(16, 10))
+    def _make_search_bar(self, parent, *fields, btn_text = "Search", cmd = None):
+        bar = ctk.CTkFrame(parent, fg_color = CARD_BG, corner_radius = 12, height = 56)
+        bar.grid(row = 0, column = 0, sticky = "ew", padx = 20, pady = (16, 10))
         bar.grid_propagate(False)
         entries = []
         col = 0
         for item in fields:
             if isinstance(item, str):
-                ctk.CTkLabel(bar, text=item, font=("Segoe UI", 14),
-                             text_color=TEXT_MUTED
-                             ).grid(row=0, column=col, padx=6)
+                ctk.CTkLabel(bar, text = item, font = ("Segoe UI", 14),
+                             text_color = TEXT_MUTED
+                             ).grid(row = 0, column = col, padx = 6)
                 col += 1
             else:
                 placeholder, width = item
                 e = ctk.CTkEntry(
-                    bar, placeholder_text=placeholder, width=width,
-                    font=FONT_BODY, fg_color=CONTENT_BG,
-                    border_color=BORDER, border_width=1,
-                    text_color=TEXT_PRIMARY,
-                    placeholder_text_color=TEXT_MUTED,
-                    corner_radius=8, height=36
+                    bar, placeholder_text = placeholder, width = width,
+                    font = FONT_BODY, fg_color = CONTENT_BG,
+                    border_color = BORDER, border_width = 1,
+                    text_color = TEXT_PRIMARY,
+                    placeholder_text_color = TEXT_MUTED,
+                    corner_radius = 8, height = 36
                 )
-                e.grid(row=0, column=col,
-                       padx=(12 if col == 0 else 4, 4), pady=10)
+                e.grid(row = 0, column = col,
+                       padx = (12 if col == 0 else 4, 4), pady = 10)
                 entries.append(e)
                 col += 1
         ctk.CTkButton(
-            bar, text=btn_text, command=cmd,
-            width=90, height=36, corner_radius=8,
-            font=("Segoe UI Semibold", 13),
-            fg_color=ACCENT, hover_color="#3a7fd4", text_color="#ffffff"
-        ).grid(row=0, column=col, padx=(4, 14), pady=10)
+            bar, text = btn_text, 
+            command = cmd,
+            width = 90, 
+            height = 36, 
+            corner_radius = 8,
+            font = ("Segoe UI Semibold", 13),
+            fg_color = ACCENT, 
+            hover_color = "#3a7fd4", 
+            text_color ="#ffffff"
+        ).grid(row = 0, column = col, padx = (4, 14), pady = 10)
         return entries
 
     def _make_results_box(self, parent):
         box = ctk.CTkTextbox(
-            parent, font=FONT_MONO,
-            fg_color=CARD_BG, text_color=TEXT_PRIMARY,
-            border_width=0, corner_radius=12,
-            scrollbar_button_color=BORDER,
-            scrollbar_button_hover_color=ACCENT_DIM
+            parent, font = FONT_MONO,
+            fg_color = CARD_BG, text_color = TEXT_PRIMARY,
+            border_width = 0, corner_radius = 12,
+            scrollbar_button_color = BORDER,
+            scrollbar_button_hover_color = ACCENT_DIM
         )
-        box.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 16))
-        box.configure(state="disabled")
-        box.tag_config("code",     foreground=ACCENT)
-        box.tag_config("accent2",  foreground=ACCENT2)
-        box.tag_config("muted",    foreground=TEXT_MUTED)
-        box.tag_config("active",   foreground="#3de8b0")
-        box.tag_config("inactive", foreground="#e87070")
-        box.tag_config("header",   foreground=TEXT_MUTED)
+        box.grid(row = 1, column = 0, sticky = "nsew", padx = 20, pady = (0, 16))
+        box.configure(state = "disabled")
+        box.tag_config("code", foreground=ACCENT)
+        box.tag_config("accent2",foreground=ACCENT2)
+        box.tag_config("muted", foreground=TEXT_MUTED)
+        box.tag_config("active", foreground="#3de8b0")
+        box.tag_config("inactive",foreground="#e87070")
+        box.tag_config("header", foreground=TEXT_MUTED)
         return box
 
     def _clear(self, box):
-        box.configure(state="normal")
+        box.configure(state = "normal")
         box.delete("1.0", "end")
 
     def _done(self, box):
-        box.configure(state="disabled")
+        box.configure(state = "disabled")
 
     def _set_status(self, text):
-        self._status_pill.configure(text=f"  {text}  " if text else "")
+        self._status_pill.configure(text = f"  {text}  " if text else "")
 
     # Airports
 
@@ -219,7 +228,7 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._ap_entry,) = self._make_search_bar(
             p, ("Name, city, country, IATA or ICAO...", 320),
-            btn_text="Search", cmd=self._search_airports)
+            btn_text = "Search", cmd = self._search_airports)
         self._ap_entry.bind("<Return>", lambda e: self._search_airports())
         self._ap_box = self._make_results_box(p)
         return p
@@ -257,7 +266,7 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._al_entry,) = self._make_search_bar(
             p, ("Airline name or country...", 300),
-            btn_text="Search", cmd=self._search_airlines)
+            btn_text = "Search", cmd = self._search_airlines)
         self._al_entry.bind("<Return>", lambda e: self._search_airlines())
         self._al_box = self._make_results_box(p)
         return p
@@ -293,8 +302,8 @@ class OpenFlightsGUI(ctk.CTk):
     def _make_destinations_panel(self):
         p = self._make_panel()
         (self._dest_entry,) = self._make_search_bar(
-            p, ("Source IATA  (ex. JFK)", 200),
-            btn_text="List", cmd=self._list_destinations)
+            p, ("Source IATA  (ex. CLE)", 200),
+            btn_text = "List", cmd = self._list_destinations)
         self._dest_entry.bind("<Return>", lambda e: self._list_destinations())
         self._dest_box = self._make_results_box(p)
         return p
@@ -329,7 +338,7 @@ class OpenFlightsGUI(ctk.CTk):
         self._rt_from, self._rt_to = self._make_search_bar(
             p,
             ("From  (ex. LHR)", 160), "->", ("To  (ex. JFK)", 160),
-            btn_text="Find", cmd=self._search_routes)
+            btn_text = "Find", cmd = self._search_routes)
         self._rt_to.bind("<Return>", lambda e: self._search_routes())
         self._rt_box = self._make_results_box(p)
         return p
@@ -372,7 +381,7 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._co_entry,) = self._make_search_bar(
             p, ("Country name  (e.x. Japan)", 260),
-            btn_text="Search", cmd=self._search_country)
+            btn_text = "Search", cmd = self._search_country)
         self._co_entry.bind("<Return>", lambda e: self._search_country())
         self._co_box = self._make_results_box(p)
         return p
@@ -405,7 +414,7 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._arc_entry,) = self._make_search_bar(
             p, ("Airline IATA code  (e.x. AA)", 220),
-            btn_text="Lookup", cmd=self._airline_route_count)
+            btn_text = "Lookup", cmd = self._airline_route_count)
         self._arc_entry.bind("<Return>", lambda e: self._airline_route_count())
         self._arc_box = self._make_results_box(p)
         return p
@@ -416,11 +425,11 @@ class OpenFlightsGUI(ctk.CTk):
         self._clear(bx)
         if not code:
             self._done(bx); return
-        count   = sum(1 for r in self.cli.routes if r["airline"] == code)
-        al      = self.cli.airlines_by_code.get(code)
-        name    = al["name"]    if al else code
+        count = sum(1 for r in self.cli.routes if r["airline"] == code)
+        al = self.cli.airlines_by_code.get(code)
+        name = al["name"]    if al else code
         country = al["country"] if al else "—"
-        active  = (al["active"] == "Y") if al else False
+        active = (al["active"] == "Y") if al else False
 
         bx.insert("end", "\n")
         bx.insert("end", "  Airline  ", "header"); bx.insert("end", f"{name}\n", "accent")
@@ -441,14 +450,14 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._board_entry,) = self._make_search_bar(
             p, ("Airport code  (ex. JFK)", 200),
-            btn_text="Show", cmd=self._show_board)
+            btn_text = "Show", cmd = self._show_board)
         self._board_entry.bind("<Return>", lambda e: self._show_board())
         self._board_box = self._make_results_box(p)
         return p
  
     def _show_board(self):
         code = self._board_entry.get().upper().strip()
-        bx   = self._board_box
+        bx = self._board_box
         self._clear(bx)
         if not code:
             self._done(bx); return
@@ -502,7 +511,7 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._aircraft_entry,) = self._make_search_bar(
             p, ("Country ISO code  (ex. US, GB)", 260),
-            btn_text="Search", cmd=self._show_aircraft)
+            btn_text = "Search", cmd = self._show_aircraft)
         self._aircraft_entry.bind("<Return>", lambda e: self._show_aircraft())
         self._aircraft_box = self._make_results_box(p)
         return p
