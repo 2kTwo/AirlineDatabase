@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from CLI import OpenFlightsCLI
+from CLI import OpenFlightsSQLCLI
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
@@ -37,7 +37,7 @@ NAV_ITEMS = [
 
 
 class OpenFlightsGUI(ctk.CTk):
-    def __init__(self, cli: OpenFlightsCLI):
+    def __init__(self, cli: OpenFlightsSQLCLI):
         super().__init__()
         self.cli = cli
         self.title("Flights Explorer")
@@ -227,20 +227,29 @@ class OpenFlightsGUI(ctk.CTk):
     def _make_airports_panel(self):
         p = self._make_panel()
         (self._ap_entry,) = self._make_search_bar(
-            p, ("Name, city, country, IATA or ICAO...", 320),
-            btn_text = "Search", cmd = self._search_airports)
+            p, ("Name, city, country, IATA or ICAO", 320),
+            btn_text="Search", cmd=self._search_airports)
         self._ap_entry.bind("<Return>", lambda e: self._search_airports())
         self._ap_box = self._make_results_box(p)
         return p
-
+ 
     def _search_airports(self):
         q = self._ap_entry.get().lower().strip()
         if not q:
             return
-        hits = [a for a in self.cli.airports
-                if q in a["name"].lower() or q in a["city"].lower()
-                or q in a["country"].lower()
-                or q == a["iata"].lower() or q == a["icao"].lower()]
+        self.cli.cursor.execute("""
+            SELECT a.name, c.city, c.country, a.iata, a.icao
+            FROM Airports a
+            JOIN Cities c ON a.city_id = c.city_id
+            WHERE LOWER(a.name)      LIKE ?
+               OR LOWER(c.city)      LIKE ?
+               OR LOWER(c.country)   LIKE ?
+               OR LOWER(a.iata)      = ?
+               OR LOWER(a.icao)      = ?
+            ORDER BY a.name
+            LIMIT 50
+        """, (f"%{q}%", f"%{q}%", f"%{q}%", q, q))
+        hits = self.cli.cursor.fetchall()
         bx = self._ap_box
         self._clear(bx)
         if not hits:
@@ -248,35 +257,40 @@ class OpenFlightsGUI(ctk.CTk):
         else:
             bx.insert("end", f"  {'IATA':<5}  {'ICAO':<5}  {'Airport':<38}  {'City':<22}  Country\n", "header")
             bx.insert("end", "  " + "-" * 88 + "\n", "muted")
-            for a in hits:
-                iata = a["iata"] if a["iata"] != "\\N" else "  — "
-                icao = a["icao"] if a["icao"] != "\\N" else "  — "
+            for name, city, country, iata, icao in hits:
                 bx.insert("end", "  ")
-                bx.insert("end", f"{iata:<5}", "code")
-                bx.insert("end", f"  {icao:<5}  ")
-                bx.insert("end", f"{a['name'][:36]:<38}", "accent2")
-                bx.insert("end", f"  {a['city'][:20]:<22}  {a['country']}\n")
+                bx.insert("end", f"{(iata or '—'):<5}", "code")
+                bx.insert("end", f"  {(icao or '—'):<5}  ")
+                bx.insert("end", f"{(name or '')[:36]:<38}", "accent2")
+                bx.insert("end", f"  {(city or '')[:20]:<22}  {country or ''}\n")
         self._done(bx)
         n = len(hits)
-        self._set_status(f"{n} result{'s' if n!=1 else ''}" if hits else "")
+        self._set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
 
     # Airlines
 
     def _make_airlines_panel(self):
         p = self._make_panel()
         (self._al_entry,) = self._make_search_bar(
-            p, ("Airline name or country...", 300),
-            btn_text = "Search", cmd = self._search_airlines)
+            p, ("Airline name or country", 300),
+            btn_text="Search", cmd=self._search_airlines)
         self._al_entry.bind("<Return>", lambda e: self._search_airlines())
         self._al_box = self._make_results_box(p)
         return p
-
+ 
     def _search_airlines(self):
         q = self._al_entry.get().lower().strip()
         if not q:
             return
-        hits = [a for a in self.cli.airlines
-                if q in a["name"].lower() or q in a["country"].lower()]
+        self.cli.cursor.execute("""
+            SELECT name, country, iata, active
+            FROM Airlines
+            WHERE LOWER(name)    LIKE ?
+               OR LOWER(country) LIKE ?
+            ORDER BY name
+            LIMIT 50
+        """, (f"%{q}%", f"%{q}%"))
+        hits = self.cli.cursor.fetchall()
         bx = self._al_box
         self._clear(bx)
         if not hits:
@@ -284,52 +298,57 @@ class OpenFlightsGUI(ctk.CTk):
         else:
             bx.insert("end", f"  {'IATA':<5}  {'Status':<12}  {'Airline':<38}  Country\n", "header")
             bx.insert("end", "  " + "-" * 74 + "\n", "muted")
-            for a in hits:
-                iata   = a["iata"] if a["iata"] != "\\N" else " — "
-                active = a["active"] == "Y"
+            for name, country, iata, active in hits:
+                is_active = active == "Y"
                 bx.insert("end", "  ")
-                bx.insert("end", f"{iata:<5}", "code")
+                bx.insert("end", f"{(iata or '—'):<5}", "code")
                 bx.insert("end", "  ")
-                bx.insert("end", f"{'active':<12}" if active else f"{'inactive':<12}",
-                          "active" if active else "inactive")
-                bx.insert("end", f"{a['name'][:36]:<38}  {a['country']}\n")
+                bx.insert("end", f"{'● active':<12}" if is_active else f"{'○ inactive':<12}",
+                          "active" if is_active else "inactive")
+                bx.insert("end", f"{(name or '')[:36]:<38}  {country or ''}\n")
         self._done(bx)
         n = len(hits)
-        self._set_status(f"{n} result{'s' if n!=1 else ''}" if hits else "")
+        self._set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
 
     # Destinations
 
     def _make_destinations_panel(self):
         p = self._make_panel()
         (self._dest_entry,) = self._make_search_bar(
-            p, ("Source IATA  (ex. CLE)", 200),
-            btn_text = "List", cmd = self._list_destinations)
+            p, ("Source IATA  (e.x CLE)", 200),
+            btn_text="List", cmd=self._list_destinations)
         self._dest_entry.bind("<Return>", lambda e: self._list_destinations())
         self._dest_box = self._make_results_box(p)
         return p
-
+ 
     def _list_destinations(self):
         code = self._dest_entry.get().upper().strip()
         bx = self._dest_box
         self._clear(bx)
-        if not code or code not in self.cli.routes_by_source:
-            bx.insert("end", "  No routes found for that code.", "muted")
+        if not code:
             self._done(bx); return
-        destinations = sorted({r["destination"] for r in self.cli.routes_by_source[code]})
+        self.cli.cursor.execute("""
+            SELECT DISTINCT r.destination, a.name, c.city, c.country
+            FROM Routes r
+            LEFT JOIN Airports a ON r.destination = a.iata
+            LEFT JOIN Cities c   ON a.city_id = c.city_id
+            WHERE r.source = ?
+            ORDER BY r.destination
+        """, (code,))
+        rows = self.cli.cursor.fetchall()
+        if not rows:
+            bx.insert("end", f"  No routes found from {code}.", "muted")
+            self._done(bx); return
         bx.insert("end", f"  {'IATA':<5}  {'Airport':<38}  {'City':<22}  Country\n", "header")
         bx.insert("end", "  " + "-" * 80 + "\n", "muted")
-        for d in destinations:
-            ap = self.cli.airport_by_code.get(d)
+        for dest, name, city, country in rows:
             bx.insert("end", "  ")
-            bx.insert("end", f"{d:<5}", "code")
-            if ap:
-                bx.insert("end", f"  {ap['name'][:36]:<38}", "accent2")
-                bx.insert("end", f"  {ap['city'][:20]:<22}  {ap['country']}\n")
-            else:
-                bx.insert("end", "  -\n", "muted")
+            bx.insert("end", f"{dest:<5}", "code")
+            bx.insert("end", f"  {(name or '')[:36]:<38}", "accent2")
+            bx.insert("end", f"  {(city or '')[:20]:<22}  {country or ''}\n")
         self._done(bx)
-        n = len(destinations)
-        self._set_status(f"{n} destination{'s' if n!=1 else ''} from {code}")
+        n = len(rows)
+        self._set_status(f"{n} destination{'s' if n != 1 else ''} from {code}")
 
     # Routes
 
@@ -337,12 +356,12 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         self._rt_from, self._rt_to = self._make_search_bar(
             p,
-            ("From  (ex. LHR)", 160), "->", ("To  (ex. JFK)", 160),
-            btn_text = "Find", cmd = self._search_routes)
+            ("From  (e.x. LHR)", 160), "->", ("To  (e.x. JFK)", 160),
+            btn_text="Find", cmd=self._search_routes)
         self._rt_to.bind("<Return>", lambda e: self._search_routes())
         self._rt_box = self._make_results_box(p)
         return p
-
+ 
     def _search_routes(self):
         src = self._rt_from.get().upper().strip()
         dst = self._rt_to.get().upper().strip()
@@ -351,62 +370,74 @@ class OpenFlightsGUI(ctk.CTk):
         if not src or not dst:
             bx.insert("end", "  Enter both airport codes.", "muted")
             self._done(bx); return
-        codes = {r["airline"] for r in self.cli.routes_by_source.get(src, [])
-                 if r["destination"] == dst}
-        if not codes:
+        self.cli.cursor.execute("""
+            SELECT DISTINCT
+                COALESCE(al.name, r.airline) AS airline_name,
+                al.active,
+                r.airline,
+                al.country
+            FROM Routes r
+            LEFT JOIN Airlines al ON r.airline = al.iata OR r.airline = al.icao
+            WHERE r.source = ? AND r.destination = ?
+            ORDER BY airline_name
+        """, (src, dst))
+        rows = self.cli.cursor.fetchall()
+        if not rows:
             bx.insert("end", f"  No direct routes found from {src} to {dst}.", "muted")
             self._done(bx); self._set_status(""); return
         bx.insert("end", f"  {'Code':<5}  {'Status':<12}  {'Airline':<38}  Country\n", "header")
         bx.insert("end", "  " + "-" * 74 + "\n", "muted")
-        for code in sorted(codes):
-            al = self.cli.airlines_by_code.get(code)
+        for name, active, code, country in rows:
+            is_active = active == "Y"
             bx.insert("end", "  ")
-            bx.insert("end", f"{code:<5}", "code")
+            bx.insert("end", f"{(code or '—'):<5}", "code")
             bx.insert("end", "  ")
-            if al:
-                active = al["active"] == "Y"
-                bx.insert("end", f"{'active':<12}" if active else f"{'inactive':<12}",
-                          "active" if active else "inactive")
-                bx.insert("end", f"{al['name'][:36]:<38}  {al['country']}\n")
-            else:
-                bx.insert("end", f"{'-':<12}", "muted")
-                bx.insert("end", "Unknown\n")
+            bx.insert("end", f"{'● active':<12}" if is_active else f"{'○ inactive':<12}",
+                      "active" if is_active else "inactive")
+            bx.insert("end", f"{(name or '')[:36]:<38}  {country or ''}\n")
         self._done(bx)
-        n = len(codes)
-        self._set_status(f"{n} airline{'s' if n!=1 else ''} · {src} -> {dst}")
+        n = len(rows)
+        self._set_status(f"{n} airline{'s' if n != 1 else ''} · {src} -> {dst}")
 
     # By Country
 
     def _make_country_panel(self):
         p = self._make_panel()
         (self._co_entry,) = self._make_search_bar(
-            p, ("Country name  (e.x. Japan)", 260),
-            btn_text = "Search", cmd = self._search_country)
+            p, ("Country name  (e.x. Jamaica)", 260),
+            btn_text="Search", cmd=self._search_country)
         self._co_entry.bind("<Return>", lambda e: self._search_country())
         self._co_box = self._make_results_box(p)
         return p
-
+ 
     def _search_country(self):
         country = self._co_entry.get().strip()
         bx = self._co_box
         self._clear(bx)
-        airports = self.cli.airports_by_country.get(country, [])
+        if not country:
+            self._done(bx); return
+        self.cli.cursor.execute("""
+            SELECT a.name, c.city, a.iata, a.icao
+            FROM Airports a
+            JOIN Cities c ON a.city_id = c.city_id
+            WHERE c.country = ?
+            ORDER BY a.name
+        """, (country,))
+        airports = self.cli.cursor.fetchall()
         if not airports:
             bx.insert("end", f"  No airports found for \"{country}\".", "muted")
             self._done(bx); return
         bx.insert("end", f"  {'IATA':<5}  {'ICAO':<5}  {'Airport':<38}  City\n", "header")
         bx.insert("end", "  " + "-" * 68 + "\n", "muted")
-        for a in airports:
-            iata = a["iata"] if a["iata"] != "\\N" else "  — "
-            icao = a["icao"] if a["icao"] != "\\N" else "  — "
+        for name, city, iata, icao in airports:
             bx.insert("end", "  ")
-            bx.insert("end", f"{iata:<5}", "code")
-            bx.insert("end", f"  {icao:<5}  ")
-            bx.insert("end", f"{a['name'][:36]:<38}", "accent2")
-            bx.insert("end", f"  {a['city']}\n")
+            bx.insert("end", f"{(iata or '—'):<5}", "code")
+            bx.insert("end", f"  {(icao or '—'):<5}  ")
+            bx.insert("end", f"{(name or '')[:36]:<38}", "accent2")
+            bx.insert("end", f"  {city or ''}\n")
         self._done(bx)
         n = len(airports)
-        self._set_status(f"{n} airport{'s' if n!=1 else ''} in {country}")
+        self._set_status(f"{n} airport{'s' if n != 1 else ''} in {country}")
 
     # Route Count
 
@@ -414,34 +445,40 @@ class OpenFlightsGUI(ctk.CTk):
         p = self._make_panel()
         (self._arc_entry,) = self._make_search_bar(
             p, ("Airline IATA code  (e.x. AA)", 220),
-            btn_text = "Lookup", cmd = self._airline_route_count)
+            btn_text="Lookup", cmd=self._airline_route_count)
         self._arc_entry.bind("<Return>", lambda e: self._airline_route_count())
         self._arc_box = self._make_results_box(p)
         return p
-
+ 
     def _airline_route_count(self):
         code = self._arc_entry.get().upper().strip()
         bx   = self._arc_box
         self._clear(bx)
         if not code:
             self._done(bx); return
-        count = sum(1 for r in self.cli.routes if r["airline"] == code)
-        al = self.cli.airlines_by_code.get(code)
-        name = al["name"]    if al else code
-        country = al["country"] if al else "—"
-        active = (al["active"] == "Y") if al else False
-
+        self.cli.cursor.execute(
+            "SELECT COUNT(*) FROM Routes WHERE airline = ?", (code,))
+        count = self.cli.cursor.fetchone()[0]
+        self.cli.cursor.execute("""
+            SELECT name, country, active FROM Airlines
+            WHERE iata = ? OR icao = ?
+            LIMIT 1
+        """, (code, code))
+        al = self.cli.cursor.fetchone()
+        name    = al[0] if al else code
+        country = al[1] if al else "—"
+        active  = al[2] == "Y" if al else False
         bx.insert("end", "\n")
-        bx.insert("end", "  Airline  ", "header"); bx.insert("end", f"{name}\n", "accent")
-        bx.insert("end", "  IATA     ", "header"); bx.insert("end", f"{code}\n", "code")
-        bx.insert("end", "  Country  ", "header"); bx.insert("end", f"{country}\n")
-        bx.insert("end", "  Status   ", "header")
+        bx.insert("end", "  Airline    ", "header"); bx.insert("end", f"{name}\n", "accent2")
+        bx.insert("end", "  IATA       ", "header"); bx.insert("end", f"{code}\n", "code")
+        bx.insert("end", "  Country    ", "header"); bx.insert("end", f"{country}\n")
+        bx.insert("end", "  Status     ", "header")
         if al:
             bx.insert("end", "Active\n" if active else "Inactive\n",
                       "active" if active else "inactive")
         bx.insert("end", "\n")
-        bx.insert("end", "  Routes   ", "header")
-        bx.insert("end", f"{count:,}\n", "accent")
+        bx.insert("end", "  Routes     ", "header")
+        bx.insert("end", f"{count:,}\n", "accent2")
         self._done(bx)
         self._set_status(f"{count:,} routes -- {name}")
 
@@ -449,109 +486,112 @@ class OpenFlightsGUI(ctk.CTk):
     def _make_board_panel(self):
         p = self._make_panel()
         (self._board_entry,) = self._make_search_bar(
-            p, ("Airport code  (ex. JFK)", 200),
-            btn_text = "Show", cmd = self._show_board)
+            p, ("Airport code  (e.x. JFK)", 200),
+            btn_text="Show", cmd=self._show_board)
         self._board_entry.bind("<Return>", lambda e: self._show_board())
         self._board_box = self._make_results_box(p)
         return p
  
     def _show_board(self):
         code = self._board_entry.get().upper().strip()
-        bx = self._board_box
+        bx   = self._board_box
         self._clear(bx)
         if not code:
             self._done(bx); return
  
         ap_name = self.cli.get_airport_name(code)
  
-        departures = [
-            {
-                "airline": self.cli.get_airline_name(r["airline"]),
-                "to":      self.cli.get_airport_name(r["destination"]),
-                "dep":     r["departure"],
-                "arr":     r["arrival"],
-            }
-            for r in self.cli.routes_by_source.get(code, [])
-        ]
-        arrivals = [
-            {
-                "airline": self.cli.get_airline_name(r["airline"]),
-                "from":    self.cli.get_airport_name(r["source"]),
-                "dep":     r["departure"],
-                "arr":     r["arrival"],
-            }
-            for r in self.cli.routes_by_destination.get(code, [])
-        ]
+        self.cli.cursor.execute("""
+            SELECT COALESCE(al.name, r.airline), r.destination, r.departure, r.arrival
+            FROM Routes r
+            LEFT JOIN Airlines al ON r.airline = al.iata OR r.airline = al.icao
+            WHERE r.source = ?
+            ORDER BY r.departure
+            LIMIT 25
+        """, (code,))
+        departures = self.cli.cursor.fetchall()
+ 
+        self.cli.cursor.execute("""
+            SELECT COALESCE(al.name, r.airline), r.source, r.departure, r.arrival
+            FROM Routes r
+            LEFT JOIN Airlines al ON r.airline = al.iata OR r.airline = al.icao
+            WHERE r.destination = ?
+            ORDER BY r.arrival
+            LIMIT 25
+        """, (code,))
+        arrivals = self.cli.cursor.fetchall()
  
         if not departures and not arrivals:
             bx.insert("end", f"  No routes found for {code}.", "muted")
             self._done(bx); return
  
-        def section(title, rows, col_a, col_b, label_a, label_b):
+        def section(title, rows, dest_label, dest_idx):
             bx.insert("end", f"\n  {title}\n", "accent2")
-            bx.insert("end", "  " + "─" * 80 + "\n", "muted")
-            bx.insert("end", f"  {'Airline':<28}  {label_a:<32}  {'Dep':>6}  {'Arr':>6}\n", "header")
-            bx.insert("end", "  " + "─" * 80 + "\n", "muted")
-            for r in rows[:25]:
+            bx.insert("end", "  " + "-" * 80 + "\n", "muted")
+            bx.insert("end", f"  {'Airline':<28}  {dest_label:<32}  {'Dep':>6}  {'Arr':>6}\n", "header")
+            bx.insert("end", "  " + "-" * 80 + "\n", "muted")
+            for row in rows:
+                airline = (row[0] or "")[:26]
+                dest    = self.cli.get_airport_name(row[dest_idx])[:30]
+                dep     = row[2] or ""
+                arr     = row[3] or ""
                 bx.insert("end", "  ")
-                bx.insert("end", f"{r['airline'][:26]:<28}", "accent2")
-                bx.insert("end", f"  {r[col_b][:30]:<32}  ")
-                bx.insert("end", f"{r['dep']:>6}  {r['arr']:>6}\n")
+                bx.insert("end", f"{airline:<28}", "accent2")
+                bx.insert("end", f"  {dest:<32}  {dep:>6}  {arr:>6}\n")
  
         if departures:
-            section("DEPARTURES", departures, "to", "to", "To", "To")
+            section("DEPARTURES", departures, "To", 1)
         if arrivals:
-            section("ARRIVALS",   arrivals,   "from", "from", "From", "From")
+            section("ARRIVALS",   arrivals,   "From", 1)
  
         self._done(bx)
-        self._set_status(f"{len(departures)} departures · {len(arrivals)} arrivals · {ap_name}")
+        self._set_status(f"{len(departures)} departures ~ {len(arrivals)} arrivals ~ {ap_name}")
 
     #aircraft by country
     def _make_aircraft_panel(self):
         p = self._make_panel()
         (self._aircraft_entry,) = self._make_search_bar(
-            p, ("Country ISO code  (ex. US, GB)", 260),
-            btn_text = "Search", cmd = self._show_aircraft)
+            p, ("Country ISO code  (e.x. US, GB)", 260),
+            btn_text="Search", cmd=self._show_aircraft)
         self._aircraft_entry.bind("<Return>", lambda e: self._show_aircraft())
         self._aircraft_box = self._make_results_box(p)
         return p
  
     def _show_aircraft(self):
-        from collections import Counter
         iso = self._aircraft_entry.get().upper().strip()
         bx  = self._aircraft_box
         self._clear(bx)
         if not iso:
             self._done(bx); return
  
-        country_name = None
-        try:
-            import csv
-            with open("countries.dat", encoding="utf-8") as f:
-                for row in csv.reader(f):
-                    if row[1].upper() == iso:
-                        country_name = row[0]
-                        break
-        except FileNotFoundError:
-            bx.insert("end", "  countries.dat not found.", "muted")
-            self._done(bx); return
- 
-        if not country_name:
+        self.cli.cursor.execute("""
+            SELECT name FROM Countries
+            WHERE UPPER(TRIM(iso_code)) = ?
+            LIMIT 1
+        """, (iso,))
+        row = self.cli.cursor.fetchone()
+        if not row:
             bx.insert("end", f"  ISO code '{iso}' not found.", "muted")
             self._done(bx); return
+        country_name = row[0]
  
-        airports = self.cli.airports_by_country.get(country_name, [])
-        airport_codes = {a["iata"] for a in airports if a["iata"] != "\\N"}
+        self.cli.cursor.execute("""
+            SELECT r.equipment, COUNT(*) AS usage
+            FROM Routes r
+            JOIN Airports a   ON r.source = a.iata
+            JOIN Cities c     ON a.city_id = c.city_id
+            JOIN Countries co ON c.country = co.name
+            WHERE UPPER(TRIM(co.iso_code)) = ?
+              AND r.equipment IS NOT NULL
+              AND r.equipment <> ''
+              AND r.equipment <> '\\N'
+            GROUP BY r.equipment
+            ORDER BY usage DESC
+            LIMIT 10
+        """, (iso,))
+        rows = self.cli.cursor.fetchall()
  
-        counter = Counter()
-        for route in self.cli.routes:
-            if route["source"] in airport_codes:
-                eq = route.get("equipment", "")
-                if eq and eq != "\\N":
-                    for plane in eq.split():
-                        counter[plane] += 1
- 
-        if not counter:
+        if not rows:
             bx.insert("end", f"  No aircraft data found for {country_name}.", "muted")
             self._done(bx); return
  
@@ -559,19 +599,19 @@ class OpenFlightsGUI(ctk.CTk):
         bx.insert("end", "  " + "-" * 40 + "\n", "muted")
         bx.insert("end", f"  {'Aircraft':<12}  {'Flights':>10}\n", "header")
         bx.insert("end", "  " + "-" * 40 + "\n", "muted")
-        for aircraft, count in counter.most_common(10):
+        for equipment, count in rows:
             bx.insert("end", "  ")
-            bx.insert("end", f"{aircraft:<12}", "code")
+            bx.insert("end", f"{equipment:<12}", "code")
             bx.insert("end", f"  {count:>10,}\n")
  
         self._done(bx)
-        self._set_status(f"{len(counter)} aircraft types ~ {country_name}")
+        self._set_status(f"{len(rows)} aircraft types ~ {country_name}")
 
 def main():
-    cli = OpenFlightsCLI()
-    cli.load_all()
+    cli = OpenFlightsSQLCLI()
     app = OpenFlightsGUI(cli)
     app.mainloop()
+    cli.close()
  
  
 if __name__ == "__main__":
