@@ -110,14 +110,14 @@ class OpenFlightsGUI(ctk.CTk):
         self._content.grid_columnconfigure(0, weight = 1)
         self._content.grid_rowconfigure(0, weight = 1)
 
-        self._panels["airports"] = self._make_airports_panel()
-        self._panels["airlines"] = self._make_airlines_panel()
-        self._panels["destinations"] = self._make_destinations_panel()
-        self._panels["routes"] = self._make_routes_panel()
-        self._panels["country"] = self._make_country_panel()
-        self._panels["routecount"] = self._make_routecount_panel()
-        self._panels["board"] = self._make_board_panel()
-        self._panels["aircraft"] = self._make_aircraft_panel()
+        self._panels["airports"] = self.make_airports_panel()
+        self._panels["airlines"] = self.make_airlines_panel()
+        self._panels["destinations"] = self.make_destinations_panel()
+        self._panels["routes"] = self.make_routes_panel()
+        self._panels["country"] = self.make_country_panel()
+        self._panels["routecount"] = self.make_routecount_panel()
+        self._panels["board"] = self.make_board_panel()
+        self._panels["aircraft"] = self.make_aircraft_panel()
 
     # Navigation
 
@@ -149,13 +149,13 @@ class OpenFlightsGUI(ctk.CTk):
 
 # Builders
 
-    def _make_panel(self):
+    def make_panel(self):
         p = ctk.CTkFrame(self._content, fg_color = CONTENT_BG, corner_radius = 0)
         p.grid_columnconfigure(0, weight = 1)
         p.grid_rowconfigure(1, weight = 1)
         return p
 
-    def _make_search_bar(self, parent, *fields, btn_text = "Search", cmd = None):
+    def make_search_bar(self, parent, *fields, btn_text = "Search", cmd = None):
         bar = ctk.CTkFrame(parent, fg_color = CARD_BG, corner_radius = 12, height = 56)
         bar.grid(row = 0, column = 0, sticky = "ew", padx = 20, pady = (16, 10))
         bar.grid_propagate(False)
@@ -194,7 +194,7 @@ class OpenFlightsGUI(ctk.CTk):
         ).grid(row = 0, column = col, padx = (4, 14), pady = 10)
         return entries
 
-    def _make_results_box(self, parent):
+    def make_results_box(self, parent):
         box = ctk.CTkTextbox(
             parent, font = FONT_MONO,
             fg_color = CARD_BG, text_color = TEXT_PRIMARY,
@@ -219,18 +219,18 @@ class OpenFlightsGUI(ctk.CTk):
     def _done(self, box):
         box.configure(state = "disabled")
 
-    def _set_status(self, text):
+    def set_status(self, text):
         self._status_pill.configure(text = f"  {text}  " if text else "")
 
     # Airports
 
-    def _make_airports_panel(self):
-        p = self._make_panel()
-        (self._ap_entry,) = self._make_search_bar(
+    def make_airports_panel(self):
+        p = self.make_panel()
+        (self._ap_entry,) = self.make_search_bar(
             p, ("Name, city, country, IATA or ICAO", 320),
             btn_text="Search", cmd=self._search_airports)
         self._ap_entry.bind("<Return>", lambda e: self._search_airports())
-        self._ap_box = self._make_results_box(p)
+        self._ap_box = self.make_results_box(p)
         return p
  
     def _search_airports(self):
@@ -265,17 +265,17 @@ class OpenFlightsGUI(ctk.CTk):
                 bx.insert("end", f"  {(city or '')[:20]:<22}  {country or ''}\n")
         self._done(bx)
         n = len(hits)
-        self._set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
+        self.set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
 
     # Airlines
 
-    def _make_airlines_panel(self):
-        p = self._make_panel()
-        (self._al_entry,) = self._make_search_bar(
+    def make_airlines_panel(self):
+        p = self.make_panel()
+        (self._al_entry,) = self.make_search_bar(
             p, ("Airline name or country", 300),
             btn_text="Search", cmd=self._search_airlines)
         self._al_entry.bind("<Return>", lambda e: self._search_airlines())
-        self._al_box = self._make_results_box(p)
+        self._al_box = self.make_results_box(p)
         return p
  
     def _search_airlines(self):
@@ -308,17 +308,17 @@ class OpenFlightsGUI(ctk.CTk):
                 bx.insert("end", f"{(name or '')[:36]:<38}  {country or ''}\n")
         self._done(bx)
         n = len(hits)
-        self._set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
+        self.set_status(f"{n} result{'s' if n != 1 else ''}" if hits else "")
 
     # Destinations
 
-    def _make_destinations_panel(self):
-        p = self._make_panel()
-        (self._dest_entry,) = self._make_search_bar(
+    def make_destinations_panel(self):
+        p = self.make_panel()
+        (self._dest_entry,) = self.make_search_bar(
             p, ("Source IATA  (e.x CLE)", 200),
             btn_text="List", cmd=self._list_destinations)
         self._dest_entry.bind("<Return>", lambda e: self._list_destinations())
-        self._dest_box = self._make_results_box(p)
+        self._dest_box = self.make_results_box(p)
         return p
  
     def _list_destinations(self):
@@ -348,18 +348,18 @@ class OpenFlightsGUI(ctk.CTk):
             bx.insert("end", f"  {(city or '')[:20]:<22}  {country or ''}\n")
         self._done(bx)
         n = len(rows)
-        self._set_status(f"{n} destination{'s' if n != 1 else ''} from {code}")
+        self.set_status(f"{n} destination{'s' if n != 1 else ''} from {code}")
 
     # Routes
 
-    def _make_routes_panel(self):
-        p = self._make_panel()
-        self._rt_from, self._rt_to = self._make_search_bar(
+    def make_routes_panel(self):
+        p = self.make_panel()
+        self._rt_from, self._rt_to = self.make_search_bar(
             p,
             ("From  (e.x. LHR)", 160), "->", ("To  (e.x. JFK)", 160),
             btn_text="Find", cmd=self._search_routes)
         self._rt_to.bind("<Return>", lambda e: self._search_routes())
-        self._rt_box = self._make_results_box(p)
+        self._rt_box = self.make_results_box(p)
         return p
  
     def _search_routes(self):
@@ -384,7 +384,7 @@ class OpenFlightsGUI(ctk.CTk):
         rows = self.cli.cursor.fetchall()
         if not rows:
             bx.insert("end", f"  No direct routes found from {src} to {dst}.", "muted")
-            self._done(bx); self._set_status(""); return
+            self._done(bx); self.set_status(""); return
         bx.insert("end", f"  {'Code':<5}  {'Status':<12}  {'Airline':<38}  Country\n", "header")
         bx.insert("end", "  " + "-" * 74 + "\n", "muted")
         for name, active, code, country in rows:
@@ -397,17 +397,17 @@ class OpenFlightsGUI(ctk.CTk):
             bx.insert("end", f"{(name or '')[:36]:<38}  {country or ''}\n")
         self._done(bx)
         n = len(rows)
-        self._set_status(f"{n} airline{'s' if n != 1 else ''} · {src} -> {dst}")
+        self.set_status(f"{n} airline{'s' if n != 1 else ''} · {src} -> {dst}")
 
     # By Country
 
-    def _make_country_panel(self):
-        p = self._make_panel()
-        (self._co_entry,) = self._make_search_bar(
+    def make_country_panel(self):
+        p = self.make_panel()
+        (self._co_entry,) = self.make_search_bar(
             p, ("Country name  (e.x. Jamaica)", 260),
             btn_text="Search", cmd=self._search_country)
         self._co_entry.bind("<Return>", lambda e: self._search_country())
-        self._co_box = self._make_results_box(p)
+        self._co_box = self.make_results_box(p)
         return p
  
     def _search_country(self):
@@ -437,17 +437,17 @@ class OpenFlightsGUI(ctk.CTk):
             bx.insert("end", f"  {city or ''}\n")
         self._done(bx)
         n = len(airports)
-        self._set_status(f"{n} airport{'s' if n != 1 else ''} in {country}")
+        self.set_status(f"{n} airport{'s' if n != 1 else ''} in {country}")
 
     # Route Count
 
-    def _make_routecount_panel(self):
-        p = self._make_panel()
-        (self._arc_entry,) = self._make_search_bar(
+    def make_routecount_panel(self):
+        p = self.make_panel()
+        (self._arc_entry,) = self.make_search_bar(
             p, ("Airline IATA code  (e.x. AA)", 220),
             btn_text="Lookup", cmd=self._airline_route_count)
         self._arc_entry.bind("<Return>", lambda e: self._airline_route_count())
-        self._arc_box = self._make_results_box(p)
+        self._arc_box = self.make_results_box(p)
         return p
  
     def _airline_route_count(self):
@@ -480,16 +480,16 @@ class OpenFlightsGUI(ctk.CTk):
         bx.insert("end", "  Routes     ", "header")
         bx.insert("end", f"{count:,}\n", "accent2")
         self._done(bx)
-        self._set_status(f"{count:,} routes -- {name}")
+        self.set_status(f"{count:,} routes -- {name}")
 
     #arrival departure board
-    def _make_board_panel(self):
-        p = self._make_panel()
-        (self._board_entry,) = self._make_search_bar(
+    def make_board_panel(self):
+        p = self.make_panel()
+        (self._board_entry,) = self.make_search_bar(
             p, ("Airport code  (e.x. JFK)", 200),
             btn_text="Show", cmd=self._show_board)
         self._board_entry.bind("<Return>", lambda e: self._show_board())
-        self._board_box = self._make_results_box(p)
+        self._board_box = self.make_results_box(p)
         return p
  
     def _show_board(self):
@@ -545,16 +545,16 @@ class OpenFlightsGUI(ctk.CTk):
             section("ARRIVALS",   arrivals,   "From", 1)
  
         self._done(bx)
-        self._set_status(f"{len(departures)} departures ~ {len(arrivals)} arrivals ~ {ap_name}")
+        self.set_status(f"{len(departures)} departures ~ {len(arrivals)} arrivals ~ {ap_name}")
 
     #aircraft by country
-    def _make_aircraft_panel(self):
-        p = self._make_panel()
-        (self._aircraft_entry,) = self._make_search_bar(
+    def make_aircraft_panel(self):
+        p = self.make_panel()
+        (self._aircraft_entry,) = self.make_search_bar(
             p, ("Country ISO code  (e.x. US, GB)", 260),
             btn_text="Search", cmd=self._show_aircraft)
         self._aircraft_entry.bind("<Return>", lambda e: self._show_aircraft())
-        self._aircraft_box = self._make_results_box(p)
+        self._aircraft_box = self.make_results_box(p)
         return p
  
     def _show_aircraft(self):
@@ -605,7 +605,7 @@ class OpenFlightsGUI(ctk.CTk):
             bx.insert("end", f"  {count:>10,}\n")
  
         self._done(bx)
-        self._set_status(f"{len(rows)} aircraft types ~ {country_name}")
+        self.set_status(f"{len(rows)} aircraft types ~ {country_name}")
 
 def main():
     cli = OpenFlightsSQLCLI()
