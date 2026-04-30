@@ -21,3 +21,6 @@ instance/
 
 #Logs
 *.log
+
+#pdf for class
+*.pdf
